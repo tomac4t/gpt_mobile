@@ -202,6 +202,12 @@ class PlatformSettingViewModel @Inject constructor(
         }
     }
 
+    fun toggleEphemeralMode() {
+        _platformState.value?.let { platform ->
+            updatePlatform(platform.copy(ephemeralMode = !platform.ephemeralMode))
+        }
+    }
+
     fun updatePlatform(platform: PlatformV2) {
         viewModelScope.launch {
             settingRepository.updatePlatformV2(platform)

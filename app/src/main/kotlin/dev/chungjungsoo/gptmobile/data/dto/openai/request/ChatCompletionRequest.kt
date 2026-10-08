@@ -75,13 +75,17 @@ data class ChatCompletionRequest(
     val tools: List<ChatFunctionTool>? = null
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class StreamOptions(
     @SerialName("include_usage")
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val includeUsage: Boolean = true,
 
+    /** Opt-in: only present when the endpoint accepts per-chunk usage counters. */
     @SerialName("continuous_usage_stats")
-    val continuousUsageStats: Boolean = true
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val continuousUsageStats: Boolean? = null
 )
 
 @Serializable

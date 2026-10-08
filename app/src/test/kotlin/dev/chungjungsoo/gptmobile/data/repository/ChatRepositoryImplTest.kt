@@ -657,7 +657,7 @@ class ChatRepositoryImplTest {
     }
 
     private fun toolResolver(toolDao: ToolConnectionDao, vault: SecretVault): AgentToolResolver {
-        val repository = ToolConnectionRepository(toolDao, vault)
+        val repository = ToolConnectionRepository(toolDao, vault, FakePlatformV2Dao())
         val networkClient = NetworkClient(CIO)
         val manager = McpClientManager(networkClient())
         return AgentToolResolver(

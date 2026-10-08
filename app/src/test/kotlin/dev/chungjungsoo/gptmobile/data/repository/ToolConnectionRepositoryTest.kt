@@ -20,7 +20,7 @@ class ToolConnectionRepositoryTest {
     fun `connection CRUD stores only verified vault reference and lists deterministically`() = runBlocking {
         val dao = FakeToolConnectionDao()
         val vault = ConnectionFakeSecretVault()
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         val credential = "alpha-secret".encodeToByteArray()
 
         repository.upsertConnection(testConnection("beta", name = "Beta"))
@@ -44,7 +44,7 @@ class ToolConnectionRepositoryTest {
     fun `metadata update without credential preserves existing credential reference`() = runBlocking {
         val dao = FakeToolConnectionDao()
         val vault = ConnectionFakeSecretVault()
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         repository.upsertConnection(testConnection("alpha"), credential = "old-secret".encodeToByteArray())
 
         repository.upsertConnection(testConnection("alpha", name = "Renamed", secretRef = null))
@@ -59,7 +59,7 @@ class ToolConnectionRepositoryTest {
         val events = mutableListOf<String>()
         val dao = FakeToolConnectionDao(events = events)
         val vault = ConnectionFakeSecretVault(events = events)
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         repository.upsertConnection(testConnection("alpha"), credential = "old-secret".encodeToByteArray())
         events.clear()
 
@@ -74,7 +74,7 @@ class ToolConnectionRepositoryTest {
     fun `failed credential replacement restores previous vault bytes and leaves input wiped`() = runBlocking {
         val dao = FakeToolConnectionDao()
         val vault = ConnectionFakeSecretVault()
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         repository.upsertConnection(testConnection("alpha"), credential = "old-secret".encodeToByteArray())
         val replacement = "new-secret".encodeToByteArray()
         dao.failUpserts = true
@@ -96,7 +96,7 @@ class ToolConnectionRepositoryTest {
     fun `failed vault verification restores old secret before database write`() = runBlocking {
         val dao = FakeToolConnectionDao()
         val vault = ConnectionFakeSecretVault()
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         repository.upsertConnection(testConnection("alpha", secretRef = "legacy_alpha"), credential = "old-secret".encodeToByteArray())
         dao.connections["alpha"] = dao.connections.getValue("alpha").copy(secretRef = "legacy_alpha")
         vault.values["legacy_alpha"] = "old-secret".encodeToByteArray()
@@ -120,7 +120,7 @@ class ToolConnectionRepositoryTest {
     fun `new connection verification failure deletes orphan secret and wipes input`() = runBlocking {
         val dao = FakeToolConnectionDao()
         val vault = ConnectionFakeSecretVault()
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         val credential = "new-secret".encodeToByteArray()
         vault.failReadsFor += "connection_alpha"
 
@@ -141,7 +141,7 @@ class ToolConnectionRepositoryTest {
         val events = mutableListOf<String>()
         val dao = FakeToolConnectionDao(events = events)
         val vault = ConnectionFakeSecretVault(events = events)
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         dao.connections["alpha"] = testConnection("alpha", secretRef = "legacy_alpha")
         vault.values["legacy_alpha"] = "old-secret".encodeToByteArray()
         events.clear()
@@ -162,7 +162,7 @@ class ToolConnectionRepositoryTest {
         val events = mutableListOf<String>()
         val dao = FakeToolConnectionDao(events = events)
         val vault = ConnectionFakeSecretVault(events = events)
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         repository.upsertConnection(testConnection("alpha"), credential = "old-secret".encodeToByteArray())
         events.clear()
 
@@ -179,7 +179,7 @@ class ToolConnectionRepositoryTest {
     @Test
     fun `web search replacement keeps exactly one binding for the profile`() = runBlocking {
         val dao = FakeToolConnectionDao()
-        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault())
+        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault(), FakePlatformV2Dao())
         repository.upsertConnection(searchConnection("search-a"))
         repository.upsertConnection(searchConnection("search-b"))
 
@@ -195,7 +195,7 @@ class ToolConnectionRepositoryTest {
     @Test
     fun `read url toggle uses builtin null connection and preserves web search`() = runBlocking {
         val dao = FakeToolConnectionDao()
-        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault())
+        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault(), FakePlatformV2Dao())
         repository.upsertConnection(searchConnection("search"))
         repository.replaceWebSearchBinding("profile-1", "search")
 
@@ -212,7 +212,7 @@ class ToolConnectionRepositoryTest {
     @Test
     fun `MCP replacement preserves built in bindings and does not auto bind unselected tools`() = runBlocking {
         val dao = FakeToolConnectionDao()
-        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault())
+        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault(), FakePlatformV2Dao())
         repository.upsertConnection(testConnection("mcp"))
         repository.upsertConnection(searchConnection("search"))
         repository.replaceWebSearchBinding("profile-1", "search")
@@ -230,7 +230,7 @@ class ToolConnectionRepositoryTest {
     @Test
     fun `colliding MCP tool names survive web search and read url replacement`() = runBlocking {
         val dao = FakeToolConnectionDao()
-        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault())
+        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault(), FakePlatformV2Dao())
         repository.upsertConnection(searchConnection("search"))
         repository.upsertConnection(testConnection("mcp"))
         repository.replaceMcpToolBindings(
@@ -254,7 +254,7 @@ class ToolConnectionRepositoryTest {
     @Test
     fun `MCP replacement preserves colliding search and read url bindings`() = runBlocking {
         val dao = FakeToolConnectionDao()
-        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault())
+        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault(), FakePlatformV2Dao())
         repository.upsertConnection(searchConnection("search"))
         repository.upsertConnection(testConnection("mcp"))
         repository.replaceWebSearchBinding("profile-1", "search")
@@ -277,7 +277,7 @@ class ToolConnectionRepositoryTest {
     @Test
     fun `web search binding rejects non search connection`() = runBlocking {
         val dao = FakeToolConnectionDao()
-        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault())
+        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault(), FakePlatformV2Dao())
         repository.upsertConnection(testConnection("mcp"))
 
         try {
@@ -293,7 +293,7 @@ class ToolConnectionRepositoryTest {
     @Test
     fun `MCP bindings require existing MCP connection and nonblank tool names`() = runBlocking {
         val dao = FakeToolConnectionDao()
-        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault())
+        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault(), FakePlatformV2Dao())
         repository.upsertConnection(searchConnection("search"))
 
         try {
@@ -323,7 +323,7 @@ class ToolConnectionRepositoryTest {
     @Test
     fun `remove web search only removes search connection binding`() = runBlocking {
         val dao = FakeToolConnectionDao()
-        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault())
+        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault(), FakePlatformV2Dao())
         repository.upsertConnection(searchConnection("search"))
         repository.upsertConnection(testConnection("mcp"))
         repository.replaceWebSearchBinding("profile-1", "search")
@@ -337,7 +337,7 @@ class ToolConnectionRepositoryTest {
     @Test
     fun `profile bindings can be listed with connection metadata`() = runBlocking {
         val dao = FakeToolConnectionDao()
-        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault())
+        val repository = ToolConnectionRepository(dao, ConnectionFakeSecretVault(), FakePlatformV2Dao())
         repository.upsertConnection(testConnection("mcp", name = "MCP Server"))
         repository.replaceMcpToolBindings("profile-1", listOf(ToolBindingSelection("mcp", "selected_tool")))
         repository.setReadUrlBinding("profile-1", enabled = true)

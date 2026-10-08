@@ -64,13 +64,27 @@ class ChatCompletionRequestSerializationTest {
             ChatCompletionRequest(
                 model = "m",
                 messages = emptyList(),
-                streamOptions = StreamOptions()
+                streamOptions = StreamOptions(continuousUsageStats = true)
             )
         )
 
         assertTrue(payload.contains("\"stream_options\""))
         assertTrue(payload.contains("\"include_usage\":true"))
         assertTrue(payload.contains("\"continuous_usage_stats\":true"))
+    }
+
+    @Test
+    fun `stream options leave continuous usage stats out unless asked`() {
+        val payload = json.encodeToString(
+            ChatCompletionRequest(
+                model = "m",
+                messages = emptyList(),
+                streamOptions = StreamOptions()
+            )
+        )
+
+        assertTrue(payload.contains("\"include_usage\":true"))
+        assertFalse(payload.contains("continuous_usage_stats"))
     }
 
     @Test

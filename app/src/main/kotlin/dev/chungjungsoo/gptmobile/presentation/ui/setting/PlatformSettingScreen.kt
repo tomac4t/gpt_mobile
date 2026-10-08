@@ -314,6 +314,12 @@ fun PlatformSettingScreen(
                                 isChecked = platformData.reasoning,
                                 onCheckedChange = { settingViewModel.toggleReasoning() }
                             )
+                            RawOutputSwitch(
+                                modifier = Modifier.heightIn(min = 64.dp),
+                                enabled = platformData.enabled,
+                                isChecked = platformData.ephemeralMode,
+                                onCheckedChange = { settingViewModel.toggleEphemeralMode() }
+                            )
                         }
                         SettingItem(
                             modifier = Modifier.heightIn(min = 64.dp),
@@ -871,6 +877,28 @@ fun ExtendedThinkingSwitch(
         title = stringResource(R.string.extended_thinking),
         description = stringResource(R.string.extended_thinking_description),
         icon = ImageVector.vectorResource(id = R.drawable.ic_model),
+        enabled = enabled,
+        isChecked = isChecked,
+        onCheckedChange = onCheckedChange
+    )
+}
+
+/**
+ * Raw-output switch. Sends the conversation verbatim: no system/developer message, no assistant
+ * instructions and no tool payload, so the model answers as its own API would.
+ */
+@Composable
+fun RawOutputSwitch(
+    modifier: Modifier,
+    enabled: Boolean,
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    PreferenceListSwitch(
+        modifier = modifier,
+        title = stringResource(R.string.raw_output),
+        description = stringResource(R.string.raw_output_description),
+        icon = ImageVector.vectorResource(id = R.drawable.ic_rounded_chat),
         enabled = enabled,
         isChecked = isChecked,
         onCheckedChange = onCheckedChange

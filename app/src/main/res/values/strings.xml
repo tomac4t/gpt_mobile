@@ -380,6 +380,8 @@
     <string name="add_model">Add</string>
     <string name="remove_model">Remove model</string>
     <string name="model_duplicate">That identifier is already in the list.</string>
+    <string name="raw_output">Raw output</string>
+    <string name="raw_output_description">Send the conversation as-is: no system or developer message, no assistant instructions, and no tools. Use it when a provider\'s injected prompt changes the answers.</string>
 
     <!-- Setup Wizard Strings -->
     <string name="your_platforms">Your Platforms</string>
