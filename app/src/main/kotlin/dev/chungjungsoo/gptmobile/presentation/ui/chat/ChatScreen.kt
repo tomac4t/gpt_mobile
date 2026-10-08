@@ -653,6 +653,15 @@ internal fun shouldAutoScrollToBottom(
     !isUserDragging &&
     !(isScrollInProgress && isScrollingAway)
 
+/**
+ * Clamps a scroll target to the reachable range.
+ *
+ * Wide content (a markdown table, a long code line) keeps the horizontal scroll state's
+ * [androidx.compose.foundation.ScrollState.maxValue] in flux while it is laid out, and a target beyond that
+ * range silently collapses to zero. Pinning the target inside the range keeps the offset honest.
+ */
+internal fun clampHorizontalScrollTarget(target: Int, maxValue: Int): Int = target.coerceIn(0, maxValue.coerceAtLeast(0))
+
 @Composable
 internal fun ChatBottomAutoScroller(
     listState: LazyListState,
