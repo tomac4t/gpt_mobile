@@ -253,6 +253,7 @@ class SetupViewModelV2 @Inject constructor(
                     apiUrl = if (clientType == ClientType.LITERT_LM) "" else _apiUrl.value.trim(),
                     token = _apiKey.value.trim().takeIf { it.isNotEmpty() && clientType != ClientType.LITERT_LM },
                     model = _model.value.trim(),
+                    modelOptions = _model.value.trim().takeIf { it.isNotEmpty() }?.let { listOf(it) } ?: emptyList(),
                     temperature = defaults?.temperature ?: 1.0f,
                     topP = defaults?.topP ?: 1.0f,
                     topK = defaults?.topK,

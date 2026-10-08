@@ -281,6 +281,53 @@ class ChatDatabaseV2MigrationsTest {
         assertEquals(null, capacityFields.getValue("override_context_tokens")["notNull"])
     }
 
+    @Test
+    fun `platform defaults include the extra sampling knobs`() {
+        val platform = PlatformV2(
+            name = "Custom",
+            compatibleType = ClientType.CUSTOM,
+            apiUrl = "https://api.deepinfra.com/v1/openai/",
+            model = "deepseek-ai/DeepSeek-V4.1-Flash"
+        )
+
+        assertNull(platform.minP)
+        assertNull(platform.repetitionPenalty)
+        assertNull(platform.presencePenalty)
+        assertNull(platform.frequencyPenalty)
+    }
+
+    @Test
+    fun `platform defaults keep a single model identifier and raw mode off`() {
+        val platform = PlatformV2(
+            name = "Custom",
+            compatibleType = ClientType.CUSTOM,
+            apiUrl = "https://api.deepinfra.com/v1/openai/",
+            model = "deepseek-ai/DeepSeek-V4.1-Flash"
+        )
+
+        assertEquals(emptyList<String>(), platform.modelOptions)
+        assertFalse(platform.ephemeralMode)
+    }
+
+    @Test
+    fun `schema fourteen export carries the sampling and model list columns`() {
+        val root = schemaDatabase(14)
+        assertEquals(14, root["version"]!!.jsonPrimitive.int)
+        val fields = entity(root, "platform_v2")["fields"]!!.jsonArray.associate { field ->
+            val obj = field.jsonObject
+            obj["columnName"]!!.jsonPrimitive.content to obj
+        }
+        listOf("min_p", "repetition_penalty", "presence_penalty", "frequency_penalty")
+            .forEach { column ->
+                assertEquals("REAL", fields.getValue(column)["affinity"]!!.jsonPrimitive.content)
+            }
+        val modelOptions = fields.getValue("model_options")
+        assertEquals("TEXT", modelOptions["affinity"]!!.jsonPrimitive.content)
+        assertEquals(true, modelOptions["notNull"]!!.jsonPrimitive.content.toBooleanStrict())
+        assertEquals("'[]'", modelOptions["defaultValue"]!!.jsonPrimitive.content)
+        assertEquals("INTEGER", fields.getValue("ephemeral_mode")["affinity"]!!.jsonPrimitive.content)
+    }
+
     private fun schemaDatabase(version: Int) = Json.parseToJsonElement(schemaFile(version).readText())
         .jsonObject["database"]!!
         .jsonObject
