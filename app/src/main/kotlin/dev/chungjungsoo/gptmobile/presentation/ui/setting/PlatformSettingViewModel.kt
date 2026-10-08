@@ -8,6 +8,7 @@ import dev.chungjungsoo.gptmobile.R
 import dev.chungjungsoo.gptmobile.data.agent.tool.AgentToolResolver
 import dev.chungjungsoo.gptmobile.data.agent.tool.namespaceMcpToolName
 import dev.chungjungsoo.gptmobile.data.catalog.CatalogEntry
+import dev.chungjungsoo.gptmobile.data.database.dao.PlatformV2Dao
 import dev.chungjungsoo.gptmobile.data.database.dao.ToolConnectionDao
 import dev.chungjungsoo.gptmobile.data.database.entity.BuiltInAgentTool
 import dev.chungjungsoo.gptmobile.data.database.entity.PlatformV2
@@ -56,13 +57,14 @@ class PlatformSettingViewModel @Inject constructor(
     private val settingRepository: SettingRepository,
     toolConnectionDao: ToolConnectionDao,
     secretVault: SecretVault,
+    platformV2Dao: PlatformV2Dao,
     private val agentToolResolver: AgentToolResolver,
     private val modelCatalogRepository: ModelCatalogRepository,
     private val localModelRepository: LocalModelRepository,
     @param:DeviceSocModel private val deviceSocModel: String,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
-    private val toolConnectionRepository = ToolConnectionRepository(toolConnectionDao, secretVault)
+    private val toolConnectionRepository = ToolConnectionRepository(toolConnectionDao, secretVault, platformV2Dao)
 
     private val platformUid: String = checkNotNull(savedStateHandle["platformUid"])
 
@@ -200,6 +202,12 @@ class PlatformSettingViewModel @Inject constructor(
         }
     }
 
+    fun toggleEphemeralMode() {
+        _platformState.value?.let { platform ->
+            updatePlatform(platform.copy(ephemeralMode = !platform.ephemeralMode))
+        }
+    }
+
     fun updatePlatform(platform: PlatformV2) {
         viewModelScope.launch {
             settingRepository.updatePlatformV2(platform)
@@ -227,6 +235,18 @@ class PlatformSettingViewModel @Inject constructor(
 
     fun openTopKDialog() = _dialogState.update { it.copy(isTopKDialogOpen = true) }
     fun closeTopKDialog() = _dialogState.update { it.copy(isTopKDialogOpen = false) }
+
+    fun openMinPDialog() = _dialogState.update { it.copy(isMinPDialogOpen = true) }
+    fun closeMinPDialog() = _dialogState.update { it.copy(isMinPDialogOpen = false) }
+
+    fun openRepetitionPenaltyDialog() = _dialogState.update { it.copy(isRepetitionPenaltyDialogOpen = true) }
+    fun closeRepetitionPenaltyDialog() = _dialogState.update { it.copy(isRepetitionPenaltyDialogOpen = false) }
+
+    fun openPresencePenaltyDialog() = _dialogState.update { it.copy(isPresencePenaltyDialogOpen = true) }
+    fun closePresencePenaltyDialog() = _dialogState.update { it.copy(isPresencePenaltyDialogOpen = false) }
+
+    fun openFrequencyPenaltyDialog() = _dialogState.update { it.copy(isFrequencyPenaltyDialogOpen = true) }
+    fun closeFrequencyPenaltyDialog() = _dialogState.update { it.copy(isFrequencyPenaltyDialogOpen = false) }
 
     fun openMaxTokensDialog() = _dialogState.update { it.copy(isMaxTokensDialogOpen = true) }
     fun closeMaxTokensDialog() = _dialogState.update { it.copy(isMaxTokensDialogOpen = false) }
@@ -264,17 +284,58 @@ class PlatformSettingViewModel @Inject constructor(
         }
     }
 
-    fun updateApiModel(model: String) {
+    /**
+     * Adds or replaces the model identifier at [index] and either way makes it the active one.
+     * A blank replacement drops the entry (unless it is the active model, which must stay).
+     */
+    fun upsertApiModel(index: Int, model: String) {
         _platformState.value?.let { platform ->
             val trimmed = model.trim()
+            if (trimmed.isEmpty()) {
+                if (index != 0) removeModelOption(platform, index)
+                return
+            }
+            if (index == 0) {
+                selectApiModel(trimmed)
+                return
+            }
+            val options = platform.modelOptions.toMutableList()
+            val optionIndex = index - 1
+            if (optionIndex !in options.indices) return
+            options[optionIndex] = trimmed
+            updatePlatform(platform.copy(modelOptions = options.distinct() - platform.model))
+        }
+    }
+
+    fun selectApiModel(model: String) {
+        _platformState.value?.let { platform ->
+            val trimmed = model.trim()
+            if (trimmed.isEmpty() || trimmed == platform.model) return
+            var options = platform.modelOptions.toMutableList().distinct()
+            if (platform.model.isNotBlank()) options = (options + platform.model).toMutableList()
+            options = (options - trimmed).toMutableList()
             val updated = if (platform.compatibleType == ClientType.LITERT_LM) {
                 reseedLocalModelDefaults(platform, trimmed)
             } else {
                 platform.copy(model = trimmed)
             }
-            updatePlatform(updated)
-            closeApiModelDialog()
+            updatePlatform(updated.copy(model = trimmed, modelOptions = options.distinct() - trimmed))
         }
+    }
+
+    fun removeModelOption(model: String) {
+        _platformState.value?.let { platform ->
+            if (model == platform.model) return
+            updatePlatform(platform.copy(modelOptions = platform.modelOptions - model))
+        }
+    }
+
+    private fun removeModelOption(platform: PlatformV2, index: Int) {
+        val options = platform.modelOptions.toMutableList()
+        val optionIndex = index - 1
+        if (optionIndex !in options.indices) return
+        options.removeAt(optionIndex)
+        updatePlatform(platform.copy(modelOptions = options))
     }
 
     private fun reseedLocalModelDefaults(platform: PlatformV2, catalogEntryId: String): PlatformV2 {
@@ -312,15 +373,50 @@ class PlatformSettingViewModel @Inject constructor(
         }
     }
 
+    fun updateMinP(minP: Float?) {
+        _platformState.value?.let { platform ->
+            updatePlatform(platform.copy(minP = minP?.coerceIn(MIN_MIN_P, MAX_MIN_P)))
+            closeMinPDialog()
+        }
+    }
+
+    fun updateRepetitionPenalty(repetitionPenalty: Float?) {
+        _platformState.value?.let { platform ->
+            updatePlatform(platform.copy(repetitionPenalty = repetitionPenalty?.coerceIn(MIN_REPETITION_PENALTY, MAX_REPETITION_PENALTY)))
+            closeRepetitionPenaltyDialog()
+        }
+    }
+
+    fun updatePresencePenalty(presencePenalty: Float?) {
+        _platformState.value?.let { platform ->
+            updatePlatform(platform.copy(presencePenalty = presencePenalty?.coerceIn(MIN_PENALTY, MAX_PENALTY)))
+            closePresencePenaltyDialog()
+        }
+    }
+
+    fun updateFrequencyPenalty(frequencyPenalty: Float?) {
+        _platformState.value?.let { platform ->
+            updatePlatform(platform.copy(frequencyPenalty = frequencyPenalty?.coerceIn(MIN_PENALTY, MAX_PENALTY)))
+            closeFrequencyPenaltyDialog()
+        }
+    }
+
     fun updateMaxTokens(maxTokens: Int?) {
         _platformState.value?.let { platform ->
+            val isLocal = platform.compatibleType == ClientType.LITERT_LM
             val capped = maxTokens?.let { requested ->
-                resolvedEngineMaxTokens(
-                    requestedMaxTokens = requested.coerceIn(MIN_MAX_TOKENS, DEFAULT_MAX_TOKENS_CAP),
-                    accelerator = platform.accelerator.orEmpty(),
-                    entry = catalogEntryFor(platform),
-                    deviceSocModel = deviceSocModel
-                )
+                if (!isLocal) {
+                    // Hosted providers cap the value on their side; the app only guards the floor
+                    // and a very generous ceiling so the field can hold 1,048,576.
+                    requested.coerceIn(MIN_MAX_TOKENS, LARGE_MAX_TOKENS_CAP)
+                } else {
+                    resolvedEngineMaxTokens(
+                        requestedMaxTokens = requested.coerceIn(MIN_MAX_TOKENS, maxTokensCap()),
+                        accelerator = platform.accelerator.orEmpty(),
+                        entry = catalogEntryFor(platform),
+                        deviceSocModel = deviceSocModel
+                    )
+                }
             }
             updatePlatform(platform.copy(maxTokens = capped))
             closeMaxTokensDialog()
@@ -329,6 +425,9 @@ class PlatformSettingViewModel @Inject constructor(
 
     fun maxTokensCap(): Int {
         val platform = _platformState.value ?: return DEFAULT_MAX_TOKENS_CAP
+        if (platform.compatibleType != ClientType.LITERT_LM) {
+            return if ((platform.maxTokens ?: 0) > LARGE_MAX_TOKENS_THRESHOLD) LARGE_MAX_TOKENS_CAP else DEFAULT_MAX_TOKENS_CAP
+        }
         val variantLimit = SocVariantResolver.resolve(
             catalogEntryFor(platform) ?: return DEFAULT_MAX_TOKENS_CAP,
             deviceSocModel
@@ -536,6 +635,10 @@ class PlatformSettingViewModel @Inject constructor(
         val isTemperatureDialogOpen: Boolean = false,
         val isTopPDialogOpen: Boolean = false,
         val isTopKDialogOpen: Boolean = false,
+        val isMinPDialogOpen: Boolean = false,
+        val isRepetitionPenaltyDialogOpen: Boolean = false,
+        val isPresencePenaltyDialogOpen: Boolean = false,
+        val isFrequencyPenaltyDialogOpen: Boolean = false,
         val isMaxTokensDialogOpen: Boolean = false,
         val isAcceleratorDialogOpen: Boolean = false,
         val isSystemPromptDialogOpen: Boolean = false,
@@ -573,5 +676,17 @@ class PlatformSettingViewModel @Inject constructor(
         const val MAX_TOP_K = 128
         const val MIN_MAX_TOKENS = 1
         const val DEFAULT_MAX_TOKENS_CAP = 32768
+
+        // Ranges match the OpenAI-compatible sampling parameters documented by DeepInfra.
+        const val MIN_MIN_P = 0F
+        const val MAX_MIN_P = 1F
+        const val MIN_REPETITION_PENALTY = 0.01F
+        const val MAX_REPETITION_PENALTY = 5F
+        const val MIN_PENALTY = -2F
+        const val MAX_PENALTY = 2F
+
+        /** DeepInfra caps the largest hosted models at this context window. */
+        const val LARGE_MAX_TOKENS_CAP = 1_048_576
+        const val LARGE_MAX_TOKENS_THRESHOLD = 32768
     }
 }

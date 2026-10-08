@@ -314,6 +314,12 @@ fun PlatformSettingScreen(
                                 isChecked = platformData.reasoning,
                                 onCheckedChange = { settingViewModel.toggleReasoning() }
                             )
+                            RawOutputSwitch(
+                                modifier = Modifier.heightIn(min = 64.dp),
+                                enabled = platformData.enabled,
+                                isChecked = platformData.ephemeralMode,
+                                onCheckedChange = { settingViewModel.toggleEphemeralMode() }
+                            )
                         }
                         SettingItem(
                             modifier = Modifier.heightIn(min = 64.dp),
@@ -326,7 +332,8 @@ fun PlatformSettingScreen(
                                         stringResource(R.string.temperature) to (platformData.temperature?.toString() ?: notSetText),
                                         stringResource(R.string.top_p) to (platformData.topP?.toString() ?: notSetText),
                                         stringResource(R.string.top_k) to if (isLocalPlatform) platformData.topK?.toString() ?: notSetText else null,
-                                        stringResource(R.string.max_tokens) to if (isLocalPlatform) platformData.maxTokens?.toString() ?: notSetText else null
+                                        stringResource(R.string.min_p) to if (isLocalPlatform) null else (platformData.minP?.toString() ?: notSetText),
+                                        stringResource(R.string.max_tokens) to (platformData.maxTokens?.toString() ?: notSetText)
                                     )
                                 )
                             },
@@ -389,6 +396,69 @@ fun PlatformSettingScreen(
                                             )
                                         }
                                     )
+                                } else {
+                                    SettingItem(
+                                        modifier = Modifier.heightIn(min = 64.dp),
+                                        title = stringResource(R.string.min_p),
+                                        description = platformData.minP?.toString() ?: notSetText,
+                                        enabled = platformData.enabled && !isReasoningDisabled,
+                                        onItemClick = settingViewModel::openMinPDialog,
+                                        showTrailingIcon = true,
+                                        showLeadingIcon = true,
+                                        leadingIcon = {
+                                            Icon(
+                                                ImageVector.vectorResource(id = R.drawable.ic_chart),
+                                                contentDescription = null
+                                            )
+                                        }
+                                    )
+                                    SettingItem(
+                                        modifier = Modifier.heightIn(min = 64.dp),
+                                        title = stringResource(R.string.repetition_penalty),
+                                        description = platformData.repetitionPenalty?.toString() ?: notSetText,
+                                        enabled = platformData.enabled && !isReasoningDisabled,
+                                        onItemClick = settingViewModel::openRepetitionPenaltyDialog,
+                                        showTrailingIcon = true,
+                                        showLeadingIcon = true,
+                                        leadingIcon = {
+                                            Icon(
+                                                ImageVector.vectorResource(id = R.drawable.ic_chart),
+                                                contentDescription = null
+                                            )
+                                        }
+                                    )
+                                    SettingItem(
+                                        modifier = Modifier.heightIn(min = 64.dp),
+                                        title = stringResource(R.string.presence_penalty),
+                                        description = platformData.presencePenalty?.toString() ?: notSetText,
+                                        enabled = platformData.enabled && !isReasoningDisabled,
+                                        onItemClick = settingViewModel::openPresencePenaltyDialog,
+                                        showTrailingIcon = true,
+                                        showLeadingIcon = true,
+                                        leadingIcon = {
+                                            Icon(
+                                                ImageVector.vectorResource(id = R.drawable.ic_chart),
+                                                contentDescription = null
+                                            )
+                                        }
+                                    )
+                                    SettingItem(
+                                        modifier = Modifier.heightIn(min = 64.dp),
+                                        title = stringResource(R.string.frequency_penalty),
+                                        description = platformData.frequencyPenalty?.toString() ?: notSetText,
+                                        enabled = platformData.enabled && !isReasoningDisabled,
+                                        onItemClick = settingViewModel::openFrequencyPenaltyDialog,
+                                        showTrailingIcon = true,
+                                        showLeadingIcon = true,
+                                        leadingIcon = {
+                                            Icon(
+                                                ImageVector.vectorResource(id = R.drawable.ic_chart),
+                                                contentDescription = null
+                                            )
+                                        }
+                                    )
+                                }
+                                if (!isLocalPlatform) {
                                     SettingItem(
                                         modifier = Modifier.heightIn(min = 64.dp),
                                         title = stringResource(R.string.max_tokens),
@@ -531,7 +601,12 @@ fun PlatformSettingScreen(
                     if (!isLocalPlatform) {
                         APIUrlDialog(dialogState, platformData.apiUrl, settingViewModel)
                         APIKeyDialog(dialogState, settingViewModel)
-                        ModelDialog(dialogState, platformData.model, settingViewModel)
+                        ModelDialog(dialogState, platformData.model, platformData.modelOptions, settingViewModel)
+                        MinPDialog(dialogState, platformData.minP, settingViewModel)
+                        RepetitionPenaltyDialog(dialogState, platformData.repetitionPenalty, settingViewModel)
+                        PenaltyDialog(dialogState, platformData.presencePenalty, isPresence = true, settingViewModel)
+                        PenaltyDialog(dialogState, platformData.frequencyPenalty, isPresence = false, settingViewModel)
+                        MaxTokensDialog(dialogState, platformData.maxTokens, settingViewModel)
                         TimeoutDialog(dialogState, platformData.timeout, settingViewModel)
                     } else {
                         LocalModelDialog(
@@ -802,6 +877,28 @@ fun ExtendedThinkingSwitch(
         title = stringResource(R.string.extended_thinking),
         description = stringResource(R.string.extended_thinking_description),
         icon = ImageVector.vectorResource(id = R.drawable.ic_model),
+        enabled = enabled,
+        isChecked = isChecked,
+        onCheckedChange = onCheckedChange
+    )
+}
+
+/**
+ * Raw-output switch. Sends the conversation verbatim: no system/developer message, no assistant
+ * instructions and no tool payload, so the model answers as its own API would.
+ */
+@Composable
+fun RawOutputSwitch(
+    modifier: Modifier,
+    enabled: Boolean,
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    PreferenceListSwitch(
+        modifier = modifier,
+        title = stringResource(R.string.raw_output),
+        description = stringResource(R.string.raw_output_description),
+        icon = ImageVector.vectorResource(id = R.drawable.ic_rounded_chat),
         enabled = enabled,
         isChecked = isChecked,
         onCheckedChange = onCheckedChange
