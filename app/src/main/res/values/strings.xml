@@ -152,6 +152,10 @@
     <string name="temperature">Temperature</string>
     <string name="top_p">Nucleus sampling (Top p)</string>
     <string name="top_k">Top-k</string>
+    <string name="min_p">Min p</string>
+    <string name="repetition_penalty">Repetition penalty</string>
+    <string name="presence_penalty">Presence penalty</string>
+    <string name="frequency_penalty">Frequency penalty</string>
     <string name="max_tokens">Max tokens</string>
     <string name="accelerator">Accelerator</string>
     <string name="system_prompt_setting">System Prompt Setting</string>
@@ -169,8 +173,17 @@
     <string name="top_k_setting">Top-k Setting</string>
     <string name="top_k_setting_description">Limits sampling to the k most likely tokens. Enter a value from 1 to 128.</string>
     <string name="top_k_invalid">Enter a whole number from 1 to 128.</string>
+    <string name="min_p_setting">Min-p Setting</string>
+    <string name="min_p_setting_description">Keeps only tokens whose probability is at least this fraction of the most likely token. 0 disables the filter and 1 keeps just the top token.</string>
+    <string name="repetition_penalty_setting">Repetition Penalty Setting</string>
+    <string name="repetition_penalty_setting_description">Divides the score of tokens that already appeared. 1 leaves them untouched; larger values discourage repeats and values below 1 encourage them.</string>
+    <string name="presence_penalty_setting">Presence Penalty Setting</string>
+    <string name="presence_penalty_setting_description">Flat penalty applied once a token has appeared at least once. Positive values push the model toward new topics.</string>
+    <string name="frequency_penalty_setting">Frequency Penalty Setting</string>
+    <string name="frequency_penalty_setting_description">Penalty scaled by how often a token has already appeared. Positive values discourage verbatim repetition.</string>
+    <string name="value_out_of_range">Enter a value from %1$s to %2$s.</string>
     <string name="max_tokens_setting">Max Tokens Setting</string>
-    <string name="max_tokens_setting_description">Maximum number of tokens the Local Model can generate in one response.</string>
+    <string name="max_tokens_setting_description">Maximum number of tokens the model may generate in one response. Leave empty to use the provider default. Hosted OpenAI-compatible models accept large values such as 1048576.</string>
     <string name="max_tokens_invalid">Enter a whole number from 1 to %d.</string>
     <string name="accelerator_setting">Accelerator</string>
     <string name="accelerator_setting_description">Choose the hardware this Local Platform uses for inference. The change applies the next time the engine loads.</string>
@@ -363,6 +376,10 @@
     <string name="collapse">Collapse</string>
     <string name="extended_thinking">Extended Thinking</string>
     <string name="extended_thinking_description">Enable for reasoning models (o1, o3, Claude with thinking, Gemini thinking)</string>
+    <string name="model_list_description">Add several model identifiers and tap one to make it the active model for this platform. The active model is the one used when sending.</string>
+    <string name="add_model">Add</string>
+    <string name="remove_model">Remove model</string>
+    <string name="model_duplicate">That identifier is already in the list.</string>
 
     <!-- Setup Wizard Strings -->
     <string name="your_platforms">Your Platforms</string>

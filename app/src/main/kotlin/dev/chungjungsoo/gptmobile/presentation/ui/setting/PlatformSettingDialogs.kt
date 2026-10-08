@@ -7,12 +7,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -24,6 +29,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -94,19 +102,26 @@ fun APIKeyDialog(
     }
 }
 
+/**
+ * Model picker for hosted providers: lists every configured identifier so a tap switches the
+ * profile's active model, plus one inline editor that adds or rewrites an entry.
+ */
 @Composable
 fun ModelDialog(
     dialogState: PlatformSettingViewModel.DialogState,
     model: String,
+    modelOptions: List<String>,
     settingViewModel: PlatformSettingViewModel
 ) {
     if (dialogState.isApiModelDialogOpen) {
         ModelDialog(
             initModel = model,
-            onDismissRequest = settingViewModel::closeApiModelDialog
-        ) { m ->
-            settingViewModel.updateApiModel(m)
-        }
+            modelOptions = modelOptions,
+            onDismissRequest = settingViewModel::closeApiModelDialog,
+            onSelectModel = settingViewModel::selectApiModel,
+            onUpsertModel = settingViewModel::upsertApiModel,
+            onRemoveModel = settingViewModel::removeModelOption
+        )
     }
 }
 
@@ -123,10 +138,57 @@ fun LocalModelDialog(
             selectedCatalogEntryId = selectedCatalogEntryId,
             models = models,
             onDismissRequest = settingViewModel::closeApiModelDialog,
-            onModelSelected = settingViewModel::updateApiModel,
+            onModelSelected = settingViewModel::selectApiModel,
             onNavigateToLocalModels = onNavigateToLocalModels
         )
     }
+}
+
+@Composable
+fun MinPDialog(
+    dialogState: PlatformSettingViewModel.DialogState,
+    minP: Float?,
+    settingViewModel: PlatformSettingViewModel
+) {
+    if (dialogState.isMinPDialogOpen) {
+        MinPDialog(
+            minP = minP,
+            onDismissRequest = settingViewModel::closeMinPDialog,
+            onConfirmRequest = settingViewModel::updateMinP
+        )
+    }
+}
+
+@Composable
+fun RepetitionPenaltyDialog(
+    dialogState: PlatformSettingViewModel.DialogState,
+    repetitionPenalty: Float?,
+    settingViewModel: PlatformSettingViewModel
+) {
+    if (dialogState.isRepetitionPenaltyDialogOpen) {
+        RepetitionPenaltyDialog(
+            repetitionPenalty = repetitionPenalty,
+            onDismissRequest = settingViewModel::closeRepetitionPenaltyDialog,
+            onConfirmRequest = settingViewModel::updateRepetitionPenalty
+        )
+    }
+}
+
+@Composable
+fun PenaltyDialog(
+    dialogState: PlatformSettingViewModel.DialogState,
+    initialValue: Float?,
+    isPresence: Boolean,
+    settingViewModel: PlatformSettingViewModel
+) {
+    val isOpen = if (isPresence) dialogState.isPresencePenaltyDialogOpen else dialogState.isFrequencyPenaltyDialogOpen
+    if (!isOpen) return
+    PenaltysDialog(
+        initialValue = initialValue,
+        isPresence = isPresence,
+        onDismissRequest = if (isPresence) settingViewModel::closePresencePenaltyDialog else settingViewModel::closeFrequencyPenaltyDialog,
+        onConfirmRequest = if (isPresence) settingViewModel::updatePresencePenalty else settingViewModel::updateFrequencyPenalty
+    )
 }
 
 @Composable
@@ -468,13 +530,29 @@ private fun TimeoutDialog(
 @Composable
 private fun ModelDialog(
     initModel: String,
+    modelOptions: List<String>,
     onDismissRequest: () -> Unit,
-    onConfirmRequest: (model: String) -> Unit
+    onSelectModel: (String) -> Unit,
+    onUpsertModel: (index: Int, model: String) -> Unit,
+    onRemoveModel: (String) -> Unit
 ) {
     val configuration = LocalWindowInfo.current
     val screenWidth = with(LocalDensity.current) { configuration.containerSize.width.toDp() }
     val screenHeight = with(LocalDensity.current) { configuration.containerSize.height.toDp() }
-    var model by remember { mutableStateOf(initModel) }
+    // Index 0 edits the active model; the rest edit the stored alternatives.
+    val models = remember(initModel, modelOptions) { listOf(initModel) + modelOptions }
+    var editingIndex by remember(models) { mutableStateOf(0) }
+    var textFieldModel by remember(models, editingIndex) { mutableStateOf(models.getOrNull(editingIndex).orEmpty()) }
+    val trimmedModel = textFieldModel.trim()
+    val isReplacementForActive = editingIndex == 0
+    val isDuplicate = trimmedModel.isNotEmpty() && models.filterIndexed { index, value ->
+        index != editingIndex && value == trimmedModel
+    }.isNotEmpty()
+    val isValid = if (isReplacementForActive) {
+        trimmedModel.isNotEmpty()
+    } else {
+        trimmedModel.isEmpty() || !isDuplicate
+    }
 
     AlertDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -483,31 +561,255 @@ private fun ModelDialog(
             .heightIn(max = screenHeight - 80.dp),
         title = { Text(text = stringResource(R.string.api_model)) },
         text = {
-            OutlinedTextField(
-                modifier = Modifier.fillMaxWidth(),
-                value = model,
-                onValueChange = { model = it },
-                label = { Text(stringResource(R.string.model_name)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                supportingText = {
-                    Text(stringResource(R.string.model_supporting))
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.model_list_description))
+                models.forEachIndexed { index, value ->
+                    val isActive = index == 0
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (isActive) {
+                                    editingIndex = index
+                                    textFieldModel = value
+                                } else {
+                                    onSelectModel(value)
+                                }
+                            }
+                            .padding(vertical = 12.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = isActive,
+                            onClick = {
+                                if (isActive) {
+                                    editingIndex = index
+                                    textFieldModel = value
+                                } else {
+                                    onSelectModel(value)
+                                }
+                            }
+                        )
+                        Text(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 8.dp),
+                            text = value
+                        )
+                        if (!isActive) {
+                            IconButton(onClick = { onRemoveModel(value) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = stringResource(R.string.remove_model)
+                                )
+                            }
+                        }
+                    }
                 }
-            )
+                if (models.size > 1) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                }
+                OutlinedTextField(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    value = textFieldModel,
+                    onValueChange = { textFieldModel = it },
+                    label = { Text(stringResource(R.string.model_name)) },
+                    singleLine = true,
+                    isError = !isValid,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    supportingText = {
+                        Text(
+                            if (isDuplicate) {
+                                stringResource(R.string.model_duplicate)
+                            } else {
+                                stringResource(R.string.model_supporting)
+                            }
+                        )
+                    }
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(
+                        enabled = isValid,
+                        onClick = {
+                            onUpsertModel(editingIndex, trimmedModel)
+                            if (editingIndex == 0) {
+                                editingIndex = 1
+                                textFieldModel = ""
+                            } else {
+                                textFieldModel = ""
+                            }
+                        }
+                    ) {
+                        Text(if (editingIndex == 0) stringResource(R.string.confirm) else stringResource(R.string.add_model))
+                    }
+                }
+            }
+        },
+        onDismissRequest = onDismissRequest,
+        confirmButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(stringResource(R.string.close))
+            }
+        }
+    )
+}
+
+@Composable
+private fun MinPDialog(
+    minP: Float?,
+    onDismissRequest: () -> Unit,
+    onConfirmRequest: (Float?) -> Unit
+) = BoundedFloatDialog(
+    title = stringResource(R.string.min_p_setting),
+    description = stringResource(R.string.min_p_setting_description),
+    label = stringResource(R.string.min_p),
+    initialValue = minP,
+    valueRange = PlatformSettingViewModel.MIN_MIN_P..PlatformSettingViewModel.MAX_MIN_P,
+    defaultValue = 0F,
+    sliderSteps = 99,
+    format = { value -> "%.2f".format(value) },
+    onDismissRequest = onDismissRequest,
+    onConfirmRequest = onConfirmRequest
+)
+
+@Composable
+private fun RepetitionPenaltyDialog(
+    repetitionPenalty: Float?,
+    onDismissRequest: () -> Unit,
+    onConfirmRequest: (Float?) -> Unit
+) = BoundedFloatDialog(
+    title = stringResource(R.string.repetition_penalty_setting),
+    description = stringResource(R.string.repetition_penalty_setting_description),
+    label = stringResource(R.string.repetition_penalty),
+    initialValue = repetitionPenalty,
+    valueRange = PlatformSettingViewModel.MIN_REPETITION_PENALTY..PlatformSettingViewModel.MAX_REPETITION_PENALTY,
+    defaultValue = 1F,
+    sliderSteps = 49,
+    format = { value -> "%.2f".format(value) },
+    onDismissRequest = onDismissRequest,
+    onConfirmRequest = onConfirmRequest
+)
+
+@Composable
+private fun PenaltysDialog(
+    initialValue: Float?,
+    isPresence: Boolean,
+    onDismissRequest: () -> Unit,
+    onConfirmRequest: (Float?) -> Unit
+) = BoundedFloatDialog(
+    title = stringResource(if (isPresence) R.string.presence_penalty_setting else R.string.frequency_penalty_setting),
+    description = stringResource(if (isPresence) R.string.presence_penalty_setting_description else R.string.frequency_penalty_setting_description),
+    label = stringResource(if (isPresence) R.string.presence_penalty else R.string.frequency_penalty),
+    initialValue = initialValue,
+    valueRange = PlatformSettingViewModel.MIN_PENALTY..PlatformSettingViewModel.MAX_PENALTY,
+    defaultValue = 0F,
+    sliderSteps = 39,
+    format = { value -> "%.2f".format(value) },
+    onDismissRequest = onDismissRequest,
+    onConfirmRequest = onConfirmRequest
+)
+
+/** Shared numeric editor for the sampling knobs that take a bounded decimal. */
+@Composable
+private fun BoundedFloatDialog(
+    title: String,
+    description: String,
+    label: String,
+    initialValue: Float?,
+    valueRange: ClosedFloatingPointRange<Float>,
+    defaultValue: Float,
+    sliderSteps: Int,
+    format: (Float) -> String,
+    onDismissRequest: () -> Unit,
+    onConfirmRequest: (Float?) -> Unit
+) {
+    val configuration = LocalWindowInfo.current
+    val screenWidth = with(LocalDensity.current) { configuration.containerSize.width.toDp() }
+    val screenHeight = with(LocalDensity.current) { configuration.containerSize.height.toDp() }
+    var textFieldValue by remember { mutableStateOf(initialValue?.let(format) ?: "") }
+    var sliderValue by remember { mutableFloatStateOf(initialValue ?: defaultValue) }
+    var isUnset by remember { mutableStateOf(initialValue == null) }
+    val parsed = textFieldValue.toFloatOrNull()
+    val isValid = textFieldValue.isBlank() || (parsed != null && parsed in valueRange)
+
+    AlertDialog(
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .widthIn(max = screenWidth - 40.dp)
+            .heightIn(max = screenHeight - 80.dp),
+        title = { Text(text = title) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(description)
+                OutlinedTextField(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 16.dp),
+                    value = textFieldValue,
+                    onValueChange = { text ->
+                        textFieldValue = text
+                        if (text.isBlank()) {
+                            isUnset = true
+                        } else {
+                            text.toFloatOrNull()?.let { value ->
+                                if (value in valueRange) {
+                                    sliderValue = value
+                                    isUnset = false
+                                }
+                            }
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text(label) },
+                    singleLine = true,
+                    isError = !isValid,
+                    placeholder = { Text(stringResource(R.string.not_set)) },
+                    supportingText = {
+                        if (!isValid) {
+                            Text(stringResource(R.string.value_out_of_range, format(valueRange.start), format(valueRange.endInclusive)))
+                        }
+                    }
+                )
+                Slider(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    value = sliderValue.coerceIn(valueRange.start, valueRange.endInclusive),
+                    valueRange = valueRange,
+                    steps = sliderSteps,
+                    enabled = !isUnset,
+                    onValueChange = { value ->
+                        val rounded = format(value).toFloatOrNull() ?: value
+                        sliderValue = rounded.coerceIn(valueRange.start, valueRange.endInclusive)
+                        textFieldValue = format(sliderValue)
+                        isUnset = false
+                    }
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(
+                        onClick = {
+                            textFieldValue = ""
+                            isUnset = true
+                        }
+                    ) {
+                        Text(stringResource(R.string.reset))
+                    }
+                }
+            }
         },
         onDismissRequest = onDismissRequest,
         confirmButton = {
             TextButton(
-                enabled = model.isNotBlank(),
-                onClick = { onConfirmRequest(model) }
+                enabled = isValid,
+                onClick = { onConfirmRequest(if (isUnset) null else sliderValue) }
             ) {
                 Text(stringResource(R.string.confirm))
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismissRequest
-            ) {
+            TextButton(onClick = onDismissRequest) {
                 Text(stringResource(R.string.cancel))
             }
         }
