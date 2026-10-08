@@ -7,6 +7,7 @@ import dev.chungjungsoo.gptmobile.data.agent.tool.McpClientManager
 import dev.chungjungsoo.gptmobile.data.agent.tool.McpOAuthCoordinator
 import dev.chungjungsoo.gptmobile.data.agent.tool.mcpOAuthConnectionUid
 import dev.chungjungsoo.gptmobile.data.agent.tool.mcpOAuthRedirectUri
+import dev.chungjungsoo.gptmobile.data.database.dao.PlatformV2Dao
 import dev.chungjungsoo.gptmobile.data.database.dao.ToolConnectionDao
 import dev.chungjungsoo.gptmobile.data.database.entity.ToolConnection
 import dev.chungjungsoo.gptmobile.data.database.entity.ToolConnectionAuthType
@@ -31,10 +32,11 @@ import kotlinx.coroutines.launch
 class ToolConnectionsViewModel @Inject constructor(
     toolConnectionDao: ToolConnectionDao,
     secretVault: SecretVault,
+    platformV2Dao: PlatformV2Dao,
     private val oauthCoordinator: McpOAuthCoordinator,
     private val mcpClientManager: McpClientManager
 ) : ViewModel() {
-    private val toolConnectionRepository = ToolConnectionRepository(toolConnectionDao, secretVault)
+    private val toolConnectionRepository = ToolConnectionRepository(toolConnectionDao, secretVault, platformV2Dao)
 
     private val _uiState = MutableStateFlow(ToolConnectionsUiState())
     val uiState: StateFlow<ToolConnectionsUiState> = _uiState.asStateFlow()

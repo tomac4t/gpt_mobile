@@ -1,6 +1,7 @@
 package dev.chungjungsoo.gptmobile.data.repository
 
 import dev.chungjungsoo.gptmobile.data.database.dao.AgentToolBindingWithConnection
+import dev.chungjungsoo.gptmobile.data.database.dao.PlatformV2Dao
 import dev.chungjungsoo.gptmobile.data.database.dao.ToolConnectionDao
 import dev.chungjungsoo.gptmobile.data.database.entity.AgentToolBinding
 import dev.chungjungsoo.gptmobile.data.database.entity.BuiltInAgentTool
@@ -19,12 +20,20 @@ data class ToolBindingSelection(
 class ToolConnectionRepository internal constructor(
     private val toolConnectionDao: ToolConnectionDao,
     private val secretVault: SecretVault,
-    private val bindingUidGenerator: (String, String?, String) -> String
+    private val bindingUidGenerator: (String, String?, String) -> String,
+    private val platformV2Dao: PlatformV2Dao? = null
 ) {
     @Inject constructor(
         toolConnectionDao: ToolConnectionDao,
-        secretVault: SecretVault
-    ) : this(toolConnectionDao, secretVault, ::stableBindingUid)
+        secretVault: SecretVault,
+        platformV2Dao: PlatformV2Dao
+    ) : this(toolConnectionDao, secretVault, ::stableBindingUid, platformV2Dao)
+
+    /**
+     * Raw-output profiles never advertise tools. Callers that only had a profile uid ahead of
+     * resolution (the tool resolver, the settings screen) use this to skip tool handling entirely.
+     */
+    suspend fun isProfileEphemeral(profileUid: String): Boolean = platformV2Dao?.getPlatformByUid(profileUid)?.ephemeralMode == true
 
     suspend fun listConnections(): List<ToolConnection> = toolConnectionDao.listConnections()
 
@@ -165,6 +174,7 @@ class ToolConnectionRepository internal constructor(
     private fun connectionSecretRef(connectionUid: String): String = "connection_$connectionUid"
 
     private companion object {
+        // Kept alongside the dao-level helpers so tests can reason about the built-in search tool.
         const val WEB_SEARCH_TOOL = "web_search"
         val WEB_SEARCH_TYPES = setOf(ToolConnectionType.FIRECRAWL, ToolConnectionType.PERPLEXITY, ToolConnectionType.EXA)
     }

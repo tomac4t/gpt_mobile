@@ -35,12 +35,23 @@ import kotlinx.coroutines.withContext
 class ProviderAttachmentEncoder @Inject constructor(
     @param:ApplicationContext private val context: Context
 ) {
+    /**
+     * Encodes chat-completions messages.
+     *
+     * Raw-output profiles run with [ephemeral] set: the leading system/developer message is
+     * dropped so the outgoing body is the conversation itself, exactly as the provider's own
+     * API documentation shows. Without it the model answers the injected instructions instead of
+     * the user (that is what made replies open with a tool roster and deny being the model).
+     */
     suspend fun openAIChatMessages(
         turns: List<ConversationTurn>,
-        systemPrompt: String?
+        systemPrompt: String?,
+        ephemeral: Boolean = false
     ): List<ChatMessage> = buildList {
-        systemPrompt?.takeIf { it.isNotBlank() }?.let { prompt ->
-            add(ChatMessage(OpenAIRole.SYSTEM, listOf(OpenAITextContent(prompt))))
+        if (!ephemeral) {
+            systemPrompt?.takeIf { it.isNotBlank() }?.let { prompt ->
+                add(ChatMessage(OpenAIRole.SYSTEM, listOf(OpenAITextContent(prompt))))
+            }
         }
         turns.forEach { turn ->
             if (turn.userMessage.hasRenderableContent(isUser = true)) {

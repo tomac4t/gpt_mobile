@@ -50,7 +50,13 @@ class AgentToolResolver @Inject constructor(
         }
     }
 
+    /**
+     * Resolves the tools advertised to the model. Raw-output profiles never advertise tools:
+     * the whole point of that mode is a verbatim request, and a tool payload changes how the
+     * model opens an answer.
+     */
     suspend fun resolve(profileUid: String): List<ResolvedAgentTool> {
+        if (toolConnectionRepository.isProfileEphemeral(profileUid)) return emptyList()
         val resolved = mutableListOf(
             CurrentDateTool().resolved(null, null, BuiltInAgentTool.CURRENT_DATE)
         )
