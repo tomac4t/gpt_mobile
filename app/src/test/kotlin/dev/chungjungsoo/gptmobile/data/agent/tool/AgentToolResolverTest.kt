@@ -10,6 +10,7 @@ import dev.chungjungsoo.gptmobile.data.database.entity.ToolConnection
 import dev.chungjungsoo.gptmobile.data.database.entity.ToolConnectionAuthType
 import dev.chungjungsoo.gptmobile.data.database.entity.ToolConnectionType
 import dev.chungjungsoo.gptmobile.data.network.NetworkClient
+import dev.chungjungsoo.gptmobile.data.repository.FakePlatformV2Dao
 import dev.chungjungsoo.gptmobile.data.repository.ToolConnectionRepository
 import dev.chungjungsoo.gptmobile.data.security.SecretVault
 import io.ktor.client.engine.cio.CIO
@@ -179,7 +180,7 @@ class AgentToolResolverTest {
         McpClientManagerTest.McpFixtureServer().use { server ->
             val dao = ResolverFakeToolConnectionDao()
             val vault = ResolverFakeSecretVault()
-            val repository = ToolConnectionRepository(dao, vault)
+            val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
             val networkClient = NetworkClient(CIO)
             val manager = McpClientManager(networkClient())
             val resolver = AgentToolResolver(
@@ -216,7 +217,7 @@ class AgentToolResolverTest {
         McpClientManagerTest.McpFixtureServer(acceptedAuthorization = "Bearer secret-token").use { server ->
             val dao = ResolverFakeToolConnectionDao()
             val vault = ResolverFakeSecretVault(mapOf("connection_mcp-1" to "secret-token".encodeToByteArray()))
-            val repository = ToolConnectionRepository(dao, vault)
+            val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
             val networkClient = NetworkClient(CIO)
             val manager = McpClientManager(networkClient())
             val resolver = AgentToolResolver(
@@ -285,7 +286,7 @@ class AgentToolResolverTest {
             val vault = ResolverFakeSecretVault(
                 mapOf("connection_mcp-1" to NetworkClient.json.encodeToString(credential).encodeToByteArray())
             )
-            val repository = ToolConnectionRepository(dao, vault)
+            val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
             val networkClient = NetworkClient(CIO)
             val manager = McpClientManager(networkClient())
             val resolver = AgentToolResolver(
@@ -327,7 +328,7 @@ class AgentToolResolverTest {
         McpClientManagerTest.McpFixtureServer().use { server ->
             val dao = ResolverFakeToolConnectionDao()
             val vault = ResolverFakeSecretVault()
-            val repository = ToolConnectionRepository(dao, vault)
+            val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
             val networkClient = NetworkClient(CIO)
             val manager = McpClientManager(networkClient())
             val resolver = AgentToolResolver(
@@ -379,7 +380,7 @@ class AgentToolResolverTest {
         dao: ResolverFakeToolConnectionDao = ResolverFakeToolConnectionDao(),
         vault: ResolverFakeSecretVault = ResolverFakeSecretVault()
     ): AgentToolResolver {
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         val networkClient = NetworkClient(CIO)
         val manager = McpClientManager(networkClient())
         return AgentToolResolver(

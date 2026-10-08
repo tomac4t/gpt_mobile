@@ -11,6 +11,7 @@ import dev.chungjungsoo.gptmobile.data.database.entity.ToolConnection
 import dev.chungjungsoo.gptmobile.data.database.entity.ToolConnectionAuthType
 import dev.chungjungsoo.gptmobile.data.database.entity.ToolConnectionType
 import dev.chungjungsoo.gptmobile.data.network.NetworkClient
+import dev.chungjungsoo.gptmobile.data.repository.FakePlatformV2Dao
 import dev.chungjungsoo.gptmobile.data.repository.ToolConnectionRepository
 import io.ktor.client.engine.cio.CIO
 import java.net.URI
@@ -56,9 +57,9 @@ class ToolConnectionsViewModelTest {
         val vault = FakeSecretVault()
         val networkClient = NetworkClient(CIO)
         val manager = McpClientManager(networkClient())
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
-        val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+        val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
 
         assertFalse(viewModel.uiState.value.isLoading)
         assertEquals("Refresh failed", viewModel.uiState.value.errorMessage)
@@ -81,9 +82,9 @@ class ToolConnectionsViewModelTest {
         val vault = FakeSecretVault()
         val networkClient = NetworkClient(CIO)
         val manager = McpClientManager(networkClient())
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
-        val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+        val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
         var completed = false
 
         viewModel.saveConnection(
@@ -117,9 +118,9 @@ class ToolConnectionsViewModelTest {
         val vault = FakeSecretVault()
         val networkClient = NetworkClient(CIO)
         val manager = McpClientManager(networkClient())
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
-        val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+        val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
         val provider = ToolConnectionsViewModel.providers.first { it.type == ToolConnectionType.FIRECRAWL }
         var firstCompleted = false
         var secondCompleted = false
@@ -170,9 +171,9 @@ class ToolConnectionsViewModelTest {
         val vault = FakeSecretVault()
         val networkClient = NetworkClient(CIO)
         val manager = McpClientManager(networkClient())
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
-        val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+        val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
         var completed = false
 
         viewModel.saveConnection(
@@ -393,9 +394,9 @@ class ToolConnectionsViewModelTest {
         val vault = FakeSecretVault()
         val networkClient = NetworkClient(CIO)
         val manager = McpClientManager(networkClient())
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
-        val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+        val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
         var completed = false
 
         viewModel.saveConnection(
@@ -430,9 +431,9 @@ class ToolConnectionsViewModelTest {
             val vault = FakeSecretVault()
             val networkClient = NetworkClient(CIO)
             val manager = McpClientManager(networkClient())
-            val repository = ToolConnectionRepository(dao, vault)
+            val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
             val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
-            val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+            val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
             val launch = async(start = CoroutineStart.UNDISPATCHED) { viewModel.oauthLaunches.first() }
             val busy = async(start = CoroutineStart.UNDISPATCHED) {
                 viewModel.uiState.first { it.busyConnectionUid != null }
@@ -466,9 +467,9 @@ class ToolConnectionsViewModelTest {
             val vault = FakeSecretVault()
             val networkClient = NetworkClient(CIO)
             val manager = McpClientManager(networkClient())
-            val repository = ToolConnectionRepository(dao, vault)
+            val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
             val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
-            val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+            val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
             val launch = async(start = CoroutineStart.UNDISPATCHED) { viewModel.oauthLaunches.first() }
 
             viewModel.startOAuth("mcp-1")
@@ -488,7 +489,7 @@ class ToolConnectionsViewModelTest {
         val vault = FakeSecretVault()
         val networkClient = NetworkClient(CIO)
         val manager = McpClientManager(networkClient())
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
         val existing = ToolConnection(
             connectionUid = "search-1",
@@ -502,7 +503,7 @@ class ToolConnectionsViewModelTest {
         )
         dao.upsertConnection(existing)
         vault.put("connection_search-1", "old-key".encodeToByteArray())
-        val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+        val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
 
         viewModel.saveConnection(
             existing = existing,
@@ -529,7 +530,7 @@ class ToolConnectionsViewModelTest {
         val vault = FakeSecretVault()
         val networkClient = NetworkClient(CIO)
         val manager = McpClientManager(networkClient())
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
         val existing = ToolConnection(
             connectionUid = "search-clear",
@@ -543,7 +544,7 @@ class ToolConnectionsViewModelTest {
         )
         dao.upsertConnection(existing)
         vault.put("connection_search-clear", "saved-secret".encodeToByteArray())
-        val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+        val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
 
         viewModel.saveConnection(
             existing = existing,
@@ -570,7 +571,7 @@ class ToolConnectionsViewModelTest {
         val vault = FakeSecretVault()
         val networkClient = NetworkClient(CIO)
         val manager = McpClientManager(networkClient())
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
         val existing = ToolConnection(
             connectionUid = "mcp-clear",
@@ -584,7 +585,7 @@ class ToolConnectionsViewModelTest {
         )
         dao.upsertConnection(existing)
         vault.put("connection_mcp-clear", "saved-token".encodeToByteArray())
-        val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+        val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
 
         viewModel.saveConnection(
             existing = existing,
@@ -610,7 +611,7 @@ class ToolConnectionsViewModelTest {
         McpOAuthClientTest.OAuthFixtureServer().use { server ->
             val dao = FakeToolConnectionDao()
             val vault = FakeSecretVault()
-            val repository = ToolConnectionRepository(dao, vault)
+            val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
             val networkClient = NetworkClient(CIO)
             val manager = McpClientManager(networkClient())
             val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
@@ -627,7 +628,7 @@ class ToolConnectionsViewModelTest {
                     allowCleartext = true
                 )
             )
-            val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+            val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
             val launch = async(start = CoroutineStart.UNDISPATCHED) { viewModel.oauthLaunches.first() }
 
             viewModel.startOAuth("connection-1")
@@ -668,7 +669,7 @@ class ToolConnectionsViewModelTest {
         McpOAuthClientTest.OAuthFixtureServer().use { server ->
             val dao = FakeToolConnectionDao()
             val vault = FakeSecretVault()
-            val repository = ToolConnectionRepository(dao, vault)
+            val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
             val networkClient = NetworkClient(CIO)
             val manager = McpClientManager(networkClient())
             val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
@@ -685,7 +686,7 @@ class ToolConnectionsViewModelTest {
                     allowCleartext = true
                 )
             )
-            val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+            val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
             val launch = async(start = CoroutineStart.UNDISPATCHED) { viewModel.oauthLaunches.first() }
 
             viewModel.startOAuth("connection-1")
@@ -704,7 +705,7 @@ class ToolConnectionsViewModelTest {
         McpOAuthClientTest.OAuthFixtureServer().use { server ->
             val dao = FakeToolConnectionDao()
             val vault = FakeSecretVault()
-            val repository = ToolConnectionRepository(dao, vault)
+            val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
             val networkClient = NetworkClient(CIO)
             val manager = McpClientManager(networkClient())
             val coordinator = McpOAuthCoordinator(McpOAuthClient(networkClient()), repository, vault, manager)
@@ -721,7 +722,7 @@ class ToolConnectionsViewModelTest {
                     allowCleartext = true
                 )
             )
-            val viewModel = ToolConnectionsViewModel(dao, vault, coordinator, manager)
+            val viewModel = ToolConnectionsViewModel(dao, vault, FakePlatformV2Dao(), coordinator, manager)
             val firstLaunch = async(start = CoroutineStart.UNDISPATCHED) { viewModel.oauthLaunches.first() }
 
             viewModel.startOAuth("connection-1")

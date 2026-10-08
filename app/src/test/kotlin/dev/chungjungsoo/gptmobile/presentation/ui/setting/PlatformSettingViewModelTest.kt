@@ -23,6 +23,7 @@ import dev.chungjungsoo.gptmobile.data.localruntime.AcceleratorUnavailableReason
 import dev.chungjungsoo.gptmobile.data.localruntime.LocalAccelerators
 import dev.chungjungsoo.gptmobile.data.model.ClientType
 import dev.chungjungsoo.gptmobile.data.network.NetworkClient
+import dev.chungjungsoo.gptmobile.data.repository.FakePlatformV2Dao
 import dev.chungjungsoo.gptmobile.data.repository.FakeLocalModelRepository
 import dev.chungjungsoo.gptmobile.data.repository.LocalModelRepository
 import dev.chungjungsoo.gptmobile.data.repository.ModelCatalogRepository
@@ -454,7 +455,7 @@ class PlatformSettingViewModelTest {
             )
         )
 
-        viewModel.updateApiModel("gemma-3n-e2b-it")
+        viewModel.upsertApiModel(0, "gemma-3n-e2b-it")
 
         val updated = settings.updatedPlatforms.single()
         assertEquals("gemma-3n-e2b-it", updated.model)
@@ -484,7 +485,7 @@ class PlatformSettingViewModelTest {
             )
         )
 
-        viewModel.updateApiModel("unknown-model")
+        viewModel.upsertApiModel(0, "unknown-model")
 
         val updated = settings.updatedPlatforms.single()
         assertEquals("unknown-model", updated.model)
@@ -564,7 +565,7 @@ class PlatformSettingViewModelTest {
         deviceSocModel: String = ""
     ): PlatformSettingViewModel {
         val vault = FakeSecretVault()
-        val repository = ToolConnectionRepository(dao, vault)
+        val repository = ToolConnectionRepository(dao, vault, FakePlatformV2Dao())
         val networkClient = NetworkClient(CIO)
         val manager = McpClientManager(networkClient())
         val resolver = AgentToolResolver(
@@ -578,6 +579,7 @@ class PlatformSettingViewModelTest {
             settingRepository = settingRepository,
             toolConnectionDao = dao,
             secretVault = vault,
+            platformV2Dao = FakePlatformV2Dao(),
             agentToolResolver = resolver,
             modelCatalogRepository = catalogRepository,
             localModelRepository = localModelRepository,
