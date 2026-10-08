@@ -54,6 +54,14 @@ data class ResponsesRequest(
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val reasoning: ReasoningConfig? = null,
 
+    @SerialName("include")
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val include: List<String>? = null,
+
+    @SerialName("stream_options")
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val streamOptions: StreamOptions? = null,
+
     @SerialName("previous_response_id")
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val previousResponseId: String? = null,
@@ -87,7 +95,11 @@ data class ReasoningConfig(
 
     @SerialName("summary")
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    val summary: String? = null
+    val summary: String? = null,
+
+    @SerialName("enabled")
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val enabled: Boolean? = null
 )
 
 /**
