@@ -14,6 +14,9 @@ enum class Role {
     @SerialName("assistant")
     ASSISTANT,
 
+    @SerialName("developer")
+    DEVELOPER,
+
     @SerialName("tool")
     TOOL
 }
