@@ -90,6 +90,7 @@ class SettingRepositoryImpl @Inject constructor(
                     apiUrl = ModelConstants.normalizeLegacyAPIUrl(platform.apiUrl),
                     token = platform.token,
                     model = platform.model ?: "",
+                    modelOptions = platform.model?.takeIf { it.isNotBlank() }?.let { listOf(it) } ?: emptyList(),
                     temperature = platform.temperature,
                     topP = platform.topP,
                     systemPrompt = platform.systemPrompt,

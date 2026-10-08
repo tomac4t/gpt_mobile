@@ -132,6 +132,7 @@ fun AddPlatformScreen(
                 apiUrl = if (clientType == ClientType.LITERT_LM) "" else apiUrl.trim(),
                 token = apiKey.trim().takeIf { it.isNotEmpty() && clientType != ClientType.LITERT_LM },
                 model = selectedModel,
+                modelOptions = selectedModel.takeIf { it.isNotBlank() }?.let { listOf(it) } ?: emptyList(),
                 temperature = defaults?.temperature ?: 1.0f,
                 topP = defaults?.topP ?: 1.0f,
                 topK = defaults?.topK,
