@@ -42,7 +42,7 @@ import dev.chungjungsoo.gptmobile.data.database.entity.ToolEvent
         ContextCheckpointEntity::class,
         ModelCapacityEntity::class
     ],
-    version = 11,
+    version = 14,
     exportSchema = true
 )
 @TypeConverters(

@@ -411,6 +411,31 @@ object ChatDatabaseV2Migrations {
         }
     }
 
+    val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `platform_v2` ADD COLUMN `ephemeral_mode` INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    val MIGRATION_12_13 = object : Migration(12, 13) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `platform_v2` ADD COLUMN `min_p` REAL")
+            db.execSQL("ALTER TABLE `platform_v2` ADD COLUMN `repetition_penalty` REAL")
+            db.execSQL("ALTER TABLE `platform_v2` ADD COLUMN `presence_penalty` REAL")
+            db.execSQL("ALTER TABLE `platform_v2` ADD COLUMN `frequency_penalty` REAL")
+        }
+    }
+
+    val MIGRATION_13_14 = object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `platform_v2` ADD COLUMN `model_options` TEXT NOT NULL DEFAULT '[]'")
+            db.execSQL(
+                "UPDATE `platform_v2` SET `model_options` = '[' || `model` || ']' " +
+                    "WHERE TRIM(`model`) != ''"
+            )
+        }
+    }
+
     val MIGRATION_7_8 = object : Migration(7, 8) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE `messages_v2` ADD COLUMN `timeline` TEXT NOT NULL DEFAULT '[]'")

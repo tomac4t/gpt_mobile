@@ -41,6 +41,7 @@ import dev.chungjungsoo.gptmobile.data.dto.openai.request.ChatFunctionTool
 import dev.chungjungsoo.gptmobile.data.dto.openai.request.ChatMessage
 import dev.chungjungsoo.gptmobile.data.dto.openai.request.ChatToolCall
 import dev.chungjungsoo.gptmobile.data.dto.openai.request.OpaqueResponseInput
+import dev.chungjungsoo.gptmobile.data.dto.openai.request.StreamOptions
 import dev.chungjungsoo.gptmobile.data.dto.openai.request.ReasoningConfig
 import dev.chungjungsoo.gptmobile.data.dto.openai.request.ResponseFunctionCallInput
 import dev.chungjungsoo.gptmobile.data.dto.openai.request.ResponseFunctionCallOutput
@@ -96,6 +97,14 @@ class OpenAIResponsesAdapter @Inject constructor(
                 tools: List<AgentToolDefinition>,
                 exchanges: List<AgentToolExchange>
             ): Flow<ProviderEvent> = flow {
+                // Raw-output profiles tell the endpoint to stop reasoning itself. "none" is the
+                // documented DeepSeek value; "true"/"false" keeps the toggle working for endpoints
+                // that only read the boolean flag.
+                val reasoningOverride = if (platform.ephemeralMode) {
+                    ReasoningConfig(enabled = platform.reasoning)
+                } else {
+                    if (platform.reasoning) ReasoningConfig(effort = "medium", summary = "auto") else null
+                }
                 val request = ResponsesRequest(
                     model = platform.model,
                     input = when {
@@ -108,13 +117,17 @@ class OpenAIResponsesAdapter @Inject constructor(
                         }
                     },
                     stream = true,
-                    instructions = (prepared?.instructions ?: platform.systemPrompt)?.takeIf { it.isNotBlank() },
+                    instructions = if (platform.ephemeralMode) null else (prepared?.instructions ?: platform.systemPrompt)?.takeIf { it.isNotBlank() },
                     maxOutputTokens = resolvedOutputTokenCap(platform, tools.isNotEmpty()),
-                    temperature = if (platform.reasoning) null else platform.temperature,
-                    topP = if (platform.reasoning) null else platform.topP,
-                    reasoning = if (platform.reasoning) ReasoningConfig(effort = "medium", summary = "auto") else null,
+                    temperature = if (platform.reasoning && !platform.ephemeralMode) null else platform.temperature,
+                    topP = if (platform.reasoning && !platform.ephemeralMode) null else platform.topP,
+                    reasoning = reasoningOverride,
+                    include = listOf("reasoning.encrypted_content").takeIf { platform.ephemeralMode && platform.reasoning },
                     previousResponseId = previousResponseId,
-                    tools = tools.takeIf { it.isNotEmpty() }?.map { definition ->
+                    // A reasoning override only reaches the endpoint once the tool payload is gone:
+                    // OpenAI folds tools into the reasoning metadata and big providers reject the
+                    // combination. Raw-output profiles run tool-free, so the deep flag cannot be.
+                    tools = tools.takeIf { it.isNotEmpty() && !platform.ephemeralMode }?.map { definition ->
                         ResponseFunctionTool(definition.name, definition.description, definition.inputSchema)
                     }
                 )
@@ -153,7 +166,8 @@ class OpenAICompatibleAdapter @Inject constructor(
     private val attachmentEncoder: ProviderAttachmentEncoder
 ) {
     suspend fun openSession(turns: List<ConversationTurn>, platform: PlatformV2): AgentProviderSession {
-        val initialMessages = attachmentEncoder.openAIChatMessages(turns, platform.systemPrompt)
+        val ephemeral = platform.ephemeralMode
+        val initialMessages = attachmentEncoder.openAIChatMessages(turns, platform.systemPrompt, ephemeral)
         val config = ProviderRequestConfig(platform.apiUrl, platform.token)
         return object : AgentProviderSession {
             override fun streamRound(
@@ -211,9 +225,15 @@ class OpenAICompatibleAdapter @Inject constructor(
                     model = platform.model,
                     messages = messages,
                     stream = platform.stream,
+                    streamOptions = StreamOptions().takeIf { platform.stream && platform.compatibleType != ClientType.GROQ },
                     temperature = platform.temperature,
                     topP = platform.topP,
+                    minP = platform.minP,
+                    repetitionPenalty = platform.repetitionPenalty,
+                    chatTemplateKwargs = platform.reasoningToggleKwargs(),
                     maxTokens = resolvedOutputTokenCap(platform, tools.isNotEmpty()),
+                    presencePenalty = platform.presencePenalty,
+                    frequencyPenalty = platform.frequencyPenalty,
                     tools = requestTools
                 )
                 val assembler = ChatCompletionsEventAssembler()
@@ -274,8 +294,8 @@ class AnthropicMessagesAdapter @Inject constructor(
                     },
                     maxTokens = resolvedOutputTokenCap(platform, tools.isNotEmpty()) ?: OutputTokenBudget.ANTHROPIC_DEFAULT_OUTPUT_TOKENS,
                     stream = platform.stream,
-                    systemPrompt = prepared?.instructions ?: platform.systemPrompt,
-                    temperature = if (isThinkingActive) null else platform.temperature,
+                    systemPrompt = if (platform.ephemeralMode) null else prepared?.instructions ?: platform.systemPrompt,
+                    temperature = if (isThinkingActive && !platform.ephemeralMode) null else platform.temperature,
                     topP = if (isThinkingActive) null else platform.topP,
                     thinking = thinkingPolicy.config,
                     tools = tools.takeIf { it.isNotEmpty() }?.map { definition ->
@@ -400,7 +420,7 @@ class GeminiAdapter @Inject constructor(
                         maxOutputTokens = resolvedOutputTokenCap(platform, tools.isNotEmpty()),
                         thinkingConfig = if (platform.reasoning) GoogleThinkingConfig(includeThoughts = true) else null
                     ),
-                    systemInstruction = platform.systemPrompt?.takeIf { it.isNotBlank() }?.let { prompt ->
+                    systemInstruction = platform.systemPrompt?.takeIf { it.isNotBlank() && !platform.ephemeralMode }?.let { prompt ->
                         Content(parts = listOf(Part.text(prompt)))
                     },
                     safetySettings = platform.googleSafetySettings(),
@@ -554,6 +574,14 @@ private fun dev.chungjungsoo.gptmobile.data.agent.AgentToolResult.modelJson(): J
 }
 
 private fun JsonElement.asResponseObject(): JsonObject = this as? JsonObject ?: buildJsonObject { put("result", this@asResponseObject) }
+
+/**
+ * Chat-completions endpoints read the DeepSeek reasoning switch from the chat template, not from
+ * a top-level flag, so the toggle travels as `chat_template_kwargs.thinking`.
+ */
+internal fun PlatformV2.reasoningToggleKwargs(): JsonObject = buildJsonObject {
+    put("thinking", JsonPrimitive(reasoning))
+}
 
 private fun PlatformV2.googleSafetySettings(): List<SafetySetting> = listOf(
     SafetySetting(

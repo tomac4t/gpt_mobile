@@ -688,7 +688,13 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     private suspend fun generateSamePlatformText(platform: PlatformV2, systemPrompt: String, turns: List<ConversationTurn>): String {
-        val session = openPreparedSession(turns, platform.copy(systemPrompt = systemPrompt, resumableReplies = false), emptyList())
+        // Compaction is an internal summarisation step: it always needs its system instruction,
+        // so a raw-output profile is temporarily switched back to a normal one.
+        val session = openPreparedSession(
+            turns,
+            platform.copy(systemPrompt = systemPrompt, resumableReplies = false, ephemeralMode = false),
+            emptyList()
+        )
         val text = StringBuilder()
         session.streamRound(emptyList(), emptyList()).collect { event ->
             when (event) {
@@ -738,6 +744,7 @@ class ChatRepositoryImpl @Inject constructor(
 
             ClientType.GROQ, ClientType.OLLAMA, ClientType.OPENROUTER, ClientType.CUSTOM ->
                 openAICompatibleAdapter.openSession(preparedTurns, platform)
+
 
             ClientType.ANTHROPIC -> anthropicMessagesAdapter.openSession(preparedTurns, platform, prepared)
 
